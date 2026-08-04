@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check acc LQ — QDONMOD</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Orbitron:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="checker.css">
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="nav-inner">
+            <a class="nav-brand" href="index.php?page=home"><span>QDONMOD</span></a>
+            <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="nav-menu" id="navMenu" aria-label="Điều hướng chính">
+                <a class="nav-link" href="index.php?page=home"><i class="fa fa-house"></i> Trang chủ</a>
+                <a class="nav-link active" href="index.php?page=checker"><i class="fa fa-shield-halved"></i> Check acc
+                    LQ</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-wrap">
+        <div class="glass-card">
+            <h1><i class="fa fa-gamepad"></i> Kiểm tra tài khoản Liên Quân</h1>
+            <p class="sub">API chạy qua <code style="color:#9fd6ff">index.php</code> — dữ liệu skin đọc từ <code
+                    style="color:#9fd6ff">all-heroes-skins.json</code> (cache tự tạo <code
+                    style="color:#9fd6ff">all-heroes-skins.cache.php</code> khi JSON đổi). Datadome: <code
+                    style="color:#9fd6ff">datadome_params.json</code> — copy cURL POST <code
+                    style="color:#9fd6ff">datadome.garena.com/js/</code> vào <code style="color:#9fd6ff">curl.txt</code>
+                rồi <code style="color:#9fd6ff">python parse_curl.py</code> (hoặc clone từ <code
+                    style="color:#9fd6ff">datadome_params.example.json</code>). <code
+                    style="color:#9fd6ff">Referer</code>/<code style="color:#9fd6ff">request</code> phải khớp trang
+                bạn bắt curl (Account Center vs SSO login).</p>
+
+            <form id="chkForm">
+                <div class="row-2">
+                    <div>
+                        <label for="account">Tài khoản Garena</label>
+                        <input type="text" id="account" name="account" autocomplete="username" required>
+                    </div>
+                    <div>
+                        <label for="password">Mật khẩu</label>
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <label class="check-proxy">
+                    <input type="checkbox" id="use_proxy" name="use_proxy">
+                    Dùng proxy
+                </label>
+                <div id="proxyBox" style="display:none">
+                    <label for="proxy">Proxy: user:mật khẩu:x.x.x.x:cổng (VD ziokatz:minhhuy:171.241.55.187:63200), user:pass@host:cổng, ip:port, IPv4:cổng:user:pass, http://…</label>
+                    <textarea id="proxy" name="proxy" placeholder="Để trống nếu dùng proxy mặc định trong code"></textarea>
+                </div>
+                <button type="submit" class="btn-submit" id="btnGo">Kiểm tra</button>
+                <p class="hint">Giữa mỗi lần check, server tự chờ tối thiểu ~5s để giảm lỗi Garena
+                    <code style="color:rgba(255,255,255,0.5)">error_too_many_requests</code>. Nếu vẫn bị: nghỉ 10–30
+                    phút, check từng acc, hoặc đổi proxy/IP. POST JSON cùng origin; local:
+                    <code style="color:rgba(255,255,255,0.5)">php -S localhost:8080</code> —
+                    <code style="color:rgba(255,255,255,0.5)">index.php?page=checker</code>.
+                </p>
+            </form>
+        </div>
+
+        <div class="glass-card" id="resultCard" style="display:none">
+            <h2 style="margin:0 0 12px;font-size:1.1rem"><i class="fa fa-code"></i> Kết quả</h2>
+            <pre id="result"></pre>
+        </div>
+    </main>
+
+    <footer>COPYRIGHT © 2026 ZIOKATZ</footer>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('navToggle');
+            var menu = document.getElementById('navMenu');
+            if (!toggle || !menu) return;
+            toggle.addEventListener('click', function () {
+                var open = menu.classList.toggle('is-open');
+                toggle.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', open);
+            });
+            menu.querySelectorAll('a').forEach(function (a) {
+                a.addEventListener('click', function () {
+                    menu.classList.remove('is-open');
+                    toggle.classList.remove('is-open');
+                    toggle.setAttribute('aria-expanded', 'false');
+                });
+            });
+        })();
+
+        document.getElementById('use_proxy').addEventListener('change', function () {
+            document.getElementById('proxyBox').style.display = this.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('chkForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var btn = document.getElementById('btnGo');
+            var card = document.getElementById('resultCard');
+            var pre = document.getElementById('result');
+            var payload = {
+                account: document.getElementById('account').value.trim(),
+                password: document.getElementById('password').value,
+                use_proxy: document.getElementById('use_proxy').checked,
+                proxy: document.getElementById('proxy').value.trim()
+            };
+            btn.disabled = true;
+            fetch('index.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    pre.textContent = JSON.stringify(data, null, 2);
+                    card.style.display = 'block';
+                })
+                .catch(function (err) {
+                    pre.textContent = JSON.stringify({ status: false, message: String(err) }, null, 2);
+                    card.style.display = 'block';
+                })
+                .finally(function () { btn.disabled = false; });
+        });
+    </script>
+</body>
+
+</html>
