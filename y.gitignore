@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pyo
+datadome_params.json
+curl.txt
+all-heroes-skins.cache.php
